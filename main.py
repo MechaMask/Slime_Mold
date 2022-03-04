@@ -1,6 +1,6 @@
 import torch
 
-sim_length = 2
+sim_length = 10
 
 
 def make_1(t : torch.tensor):
@@ -30,20 +30,18 @@ class environment:
     
         #the chemical compound emission cost
         self.e = e
-        self.Env_nutrients = torch.empty(x,y,dtype=torch.float32)
-        self.Slime_Amount = torch.empty(x,y,dtype=torch.float32)
-        self.Compound_Quantity = torch.empty(x,y,dtype=torch.float32)
-        self.Pump_Fraction = torch.empty(x,y,x,y,dtype=torch.float32) #pump fraction p of nutrients from (i, j) to (k, l)
-        self.Emit_Quantity = torch.empty(x,y,dtype=torch.float32) #emit quantity of compound at (i, j)
+        self.Env_nutrients = torch.zeros((x,y),dtype=torch.float32)
+        self.Slime_Amount = torch.zeros((x,y),dtype=torch.float32)
+        self.Compound_Quantity = torch.zeros((x,y),dtype=torch.float32)
+        self.Pump_Fraction = torch.zeros((x,y,x,y),dtype=torch.float32) #pump fraction p of nutrients from (i, j) to (k, l)
+        self.Emit_Quantity = torch.zeros((x,y),dtype=torch.float32) #emit quantity of compound at (i, j)
         #0 E Environmental nutrients
         #1 S Slime mold cytoplasm amount
         #2 C Communication compound quantity
 
-        self.grid = torch.tensor(self.Env_nutrients,self.Slime_Amount,self.Compound_Quantity)
-
 
         self.default_map()
-
+      
     
 
 
@@ -102,11 +100,30 @@ class environment:
         # we need to clean slm here
         # if env == 0, then slm = 0
         #    else, slm = slm
-        self.Env_nutrients = env - self.g *slm*make_1(env)
+        self.Env_nutrients = env - self.g * slm * make_1(env)
         # previous equation:   self.Env_nutrients = env - self.g *slm
 
+        # still can't handle negative
+        #    env = 10
+        #    g * slm = 6
+        #    10 - 6 - 6 = -2
+
         #rule 2
-        self.Slime_Amount = (1-self.b)*slm - self.e*mq*make_1(slm) + self.p*( (torch.einsum('ijkl,kl->ij', pf, slm) - torch.einsum('ijkk',pf)*slm) )
+        self.Slime_Amount = ((1-self.b)*slm - self.e*mq*make_1(slm) #slime burn
+                            + self.p*( (torch.einsum('ijkl,kl->ij', pf, slm) - torch.einsum('ijkk',pf)*slm) ) 
+                            + make_1(env) * make_1(slm) * self.g * slm) #convert nutrient   Vincent forgot about add nutrient
+        #can't take care negative :D
+        
+        #if pumping is from location A (1,1) to B (10,10) witht he 4d matrix Pump_Fraction 
+        # i = 1, j = 1, k = 10, l = 10
+        #I think the matrix allows the pump to instantly decrease from (1,1) and increase (10,10) 
+        #Instead of moving the nutrients through (1,1), (2,2),(3,3)... (10,10)
+        # (1,1,10,10) = 3
+        # (1,1) -= 3
+        # (10,10) += 3
+    
+        
+         
         #torch.einsum('ijkk',A)Partial trace
         #torch.einsum('ijkl,kl->ij', A, B) Multiplication
         #   ('ijkl,kl->ij', pf, sim)
@@ -121,7 +138,7 @@ class environment:
         '''
             
         '''
-        return str(self.grid)
+        return ""
         
 
 
@@ -131,6 +148,7 @@ grid = environment()
  
 
 for frame in range(sim_length):
+    print("Frame #",frame)
     print("------------")
     print("Enviromental Nutrients")
     print(grid.Env_nutrients)
