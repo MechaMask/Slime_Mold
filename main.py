@@ -105,8 +105,15 @@ class environment:
 
         # still can't handle negative
         #    env = 10
-        #    g * slm = 6
-        #    10 - 6 - 6 = -2
+        #    if g * slm > env
+        #    g * slm = 12
+        #    10 - 12 = -2
+        #or two iterations that surpass env
+        #   env = 10
+        #   g * slm = 6
+        #   env = 10 - 6 = 4 
+        #   slm = 5.4
+        #   env = 4 - 5.4 = -1.4
 
         #rule 2
         self.Slime_Amount = ((1-self.b)*slm - self.e*mq*make_1(slm) #slime burn
