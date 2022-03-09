@@ -1,7 +1,7 @@
 import torch
-from torch.nn.functional import Relu as relu
+from torch.nn.functional import relu as relu
 
-sim_length = 10
+sim_length = 61
 delta_threshold = 0.08
 
 def make_1(t : torch.tensor):
@@ -52,12 +52,17 @@ class environment:
 
     #default map for test
     def default_map(self):
+        
+        torch.manual_seed(7842)
+        self.Pump_Fraction = torch.rand(10,10,10,10)
+        self.Emit_Quantity = torch.rand(10,10)
+
                                                 #1,2,3,4,5,6,7,8,9,0
         self.Env_nutrients  = torch.tensor([    [10,0,0,0,0,0,0,0,0,0],         #1
                                                 [0,0,0,0,0,0,0,3,0,0],          #2
                                                 [0,2,0,0,0,0,0,0,0,0],          #3
                                                 [0,0,0,0,4,0,0,0,0,0],          #4
-                                                [0,0,0,4,8,4,0,0,0,0],          #5
+                                                [0,0,0,4,20,4,0,0,0,0],          #5
                                                 [0,0,0,0,4,0,0,0,0,0],          #6
                                                 [0,0,0,0,0,0,0,7,0,0],          #7
                                                 [0,7,0,0,0,0,0,0,0,0],          #8
@@ -147,7 +152,7 @@ class environment:
 
         
         self.Slime_Amount = (
-                            (1-self.b)*slm + self.g*sigma_slm - self.e*mq*sigma_slm
+                            (1-self.b)*slm + self.g*sigma_slm*env - self.e*mq*sigma_slm #Vincent forgot env for self.g*sigma_slm*env
                             + self.p*(   torch.einsum('ijkl,kl->ij', pf, slm)  * sigma_Fx( (1-self.p) * slm)   )
                             - torch.sum( pf ,(2,3)) * slm * sigma_Fx( (1-self.p) * slm) 
                             )
@@ -178,20 +183,26 @@ grid = environment()
  
 
 for frame in range(sim_length):
-    print("Frame #",frame)
-    print("------------")
-    print("Enviromental Nutrients")
-    print(grid.Env_nutrients)
-    print("")
-    print("Slime Amount: ")
-    print(grid.Slime_Amount)
-    print("")
-    print("Compound Quantity: ")
-    print(grid.Compound_Quantity)
-    print("------------")
-    print("")
-    print("")
-    print("---updated--")
+    if frame % 10 == 0:
+       
+        print("Frame #",frame)
+        print("Total Nutrients: ",torch.sum(grid.Env_nutrients))
+        print("Total Slime: ",torch.sum(grid.Slime_Amount))
+        print("------------")
+        print("Enviromental Nutrients")
+        print(grid.Env_nutrients)
+        print("")
+        print("Slime Amount: ")
+        print(grid.Slime_Amount)
+        print("")
+        print("Compound Quantity: ")
+        print(grid.Compound_Quantity)
+        print("")
+        print()
+        print("------------")
+        print("")
+        print("")
+        print("---updated--")
     grid.update()
 
 
