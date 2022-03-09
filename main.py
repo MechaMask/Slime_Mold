@@ -1,11 +1,15 @@
 import torch
+from torch.nn.functional import Relu as relu
 
 sim_length = 10
-
+delta_threshold = 0.08
 
 def make_1(t : torch.tensor):
         return torch.where(t > 0, 1, 0)
 
+def sigma_Fx( t : torch.tensor, dt = delta_threshold):
+    return 1 / dt * (relu(t) - relu(t - dt) )
+    
 
 
 class environment:
@@ -30,6 +34,7 @@ class environment:
     
         #the chemical compound emission cost
         self.e = e
+
         self.Env_nutrients = torch.zeros((x,y),dtype=torch.float32)
         self.Slime_Amount = torch.zeros((x,y),dtype=torch.float32)
         self.Compound_Quantity = torch.zeros((x,y),dtype=torch.float32)
@@ -100,9 +105,10 @@ class environment:
         # we need to clean slm here
         # if env == 0, then slm = 0
         #    else, slm = slm
+        '''
         self.Env_nutrients = env - self.g * slm * make_1(env)
+        '''
         # previous equation:   self.Env_nutrients = env - self.g *slm
-
         # still can't handle negative
         #    env = 10
         #    if g * slm > env
@@ -115,10 +121,17 @@ class environment:
         #   slm = 5.4
         #   env = 4 - 5.4 = -1.4
 
+        sigma_slm = sigma_Fx(slm)
+        self.Env_nutrients = env - self.g * sigma_slm * env
+        
+
+
         #rule 2
+        '''
         self.Slime_Amount = ((1-self.b)*slm - self.e*mq*make_1(slm) #slime burn
                             + self.p*( (torch.einsum('ijkl,kl->ij', pf, slm) - torch.einsum('ijkk',pf)*slm) ) 
                             + make_1(env) * make_1(slm) * self.g * slm) #convert nutrient   Vincent forgot about add nutrient
+        '''
         #can't take care negative :D
         
         #if pumping is from location A (1,1) to B (10,10) witht he 4d matrix Pump_Fraction 
@@ -129,17 +142,27 @@ class environment:
         # (1,1) -= 3
         # (10,10) += 3
     
-        
-         
         #torch.einsum('ijkk',A)Partial trace
         #torch.einsum('ijkl,kl->ij', A, B) Multiplication
-        #   ('ijkl,kl->ij', pf, sim)
-        #   ('ijkl,kl->kl', pf, sim)
-        #   ('ijkl,ij->ij', pf, sim)
 
         
+        self.Slime_Amount = (
+                            (1-self.b)*slm + self.g*sigma_slm - self.e*mq*sigma_slm
+                            + self.p*(   torch.einsum('ijkl,kl->ij', pf, slm)  * sigma_Fx( (1-self.p) * slm)   )
+                            - torch.sum( pf ,(2,3)) * slm * sigma_Fx( (1-self.p) * slm) 
+                            )
+
+        
+        
         #rule 3
-        self.Compound_Quantity = (1-self.d)*comp - self.c*mq*make_1(comp) + self.p*( (torch.einsum('ijkl,kl->ij', pf, comp) - torch.einsum('ijkk',pf)*comp) )
+        # self.Compound_Quantity = (1-self.d)*comp - self.c*mq*make_1(comp) + self.p*( (torch.einsum('ijkl,kl->ij', pf, comp) - torch.einsum('ijkk',pf)*comp) )
+
+    
+        self.Compound_Quantity = (
+                                 (1-self.d) * comp + self.c*mq*sigma_slm 
+                                 + self.p * (   torch.einsum('ijkl,kl->ij', pf, comp) * sigma_Fx( (1-self.p) * slm)   )
+                                 -  torch.sum( pf, (2,3)) * comp * sigma_Fx( (1-self.p) * slm )
+                                 )
 
     def __str__(self):
         '''
