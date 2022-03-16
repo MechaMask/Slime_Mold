@@ -1,35 +1,18 @@
 import json
 import torch
 from torch.nn.functional import relu as relu
+import function as f
 
 sim_length = 2
-delta_threshold = 0.08
+delta_threshold = f.delta_threshold
 
-def valid_grid(matrix):
-    for i in range(len(matrix)-1):
-        if not (len(matrix[i]) == len(matrix[i+1])):
-            return False
-    return True
-
-def valid_grid_length(matrix1,matrix2,matrix3):
-    if (len(matrix1) == len(matrix2) == len(matrix3)) and (len(matrix1[0]) == len(matrix2[0]) == len(matrix3[0])): 
-        return True
-    else:
-        return False
-        
-    
-
-def make_1(t : torch.tensor):
-        return torch.where(t > 0, 1, 0)
-
-def sigma_Fx( t : torch.tensor, dt = delta_threshold):
-    return 1 / dt * (relu(t) - relu(t - dt) )   
+ 
 with open('map.json') as json_file:
     mapinfo = json.load(json_file)
 print(mapinfo)
 print(mapinfo['slime'])
 class environment:
-    def __init__(self, input_map = None, x=10,y=10, rand_seed = 7842, p = 0.1, g = 0.1, b = 0.1, d = 0.1, c = 0.1, e = 0.1, ):
+    def __init__(self, input_map = None, x=10,y=10, rand_seed = torch.seed(), p = 0.1, g = 0.1, b = 0.1, d = 0.1, c = 0.1, e = 0.1, ):
         self.x = x 
         self.y = y 
         self.Env_nutrients = torch.zeros((x,y),dtype=torch.float32)
@@ -77,12 +60,24 @@ class environment:
         
 
         #self.default_map()
-      
+    
     def random_map(self,rand_seed):
         torch.manual_seed(rand_seed)
-        # self.Env_nutrients = 
-        # self.Slime_Amount = 
-        # self.Compound_Quantity = 
+        max_cons = 100 
+        max_location = 5 
+        max_index = self.x*self.y
+        torch.rand((self.x,self.y), dtype=torch.float32) *self.g*max_cons # replace 100 with a hyper parameter
+        k = torch.randint(1, max_location, (1,)) #replace 5 with a variable to be a hyper parameter
+        perm = torch.randperm(0, max_index) #a random permutation of numbers between o - maxindex - 1  
+        sample = perm[:k[0]] # select the first k from the random permutation
+
+        # if (i in high_cons_ind):
+        #     generate(high=true,sample[i])
+        # else:
+
+
+        # self.Env_nutrients = #an array of X by Y that has values of the amounts of nutrients
+        # self.Slime_Amount =
         
    
         
@@ -95,15 +90,18 @@ class environment:
 
         if (not   
         #checks if they are matricies                
-        (valid_grid(nutrients_matrix) and valid_grid(slime_matrix) and valid_grid(compound_matrix) 
+        (f.valid_grid(nutrients_matrix) and f.valid_grid(slime_matrix) and f.valid_grid(compound_matrix) 
         #checks if they are all equal length
-         and valid_grid_length(nutrients_matrix, slime_matrix, compound_matrix))     
+         and f.valid_grid_length(nutrients_matrix, slime_matrix, compound_matrix))     
         ):
          self.default_map()
         else:
+            self.x = len(nutrients_matrix[0])
+            self.y = len(nutrients_matrix)
             self.Env_nutrients = torch.tensor(nutrients_matrix, dtype=torch.float32)
             self.Slime_Amount = torch.tensor(slime_matrix, dtype=torch.float32)
             self.Compound_Quantity =  torch.tensor(compound_matrix, dtype=torch.float32)
+            
            
 
 # %3= 1
@@ -203,7 +201,7 @@ class environment:
         # if env == 0, then slm = 0
         #    else, slm = slm
         '''
-        self.Env_nutrients = env - self.g * slm * make_1(env)
+        self.Env_nutrients = env - self.g * slm * f.make_1(env)
         '''
         # previous equation:   self.Env_nutrients = env - self.g *slm
         # still can't handle negative
@@ -218,16 +216,16 @@ class environment:
         #   slm = 5.4
         #   env = 4 - 5.4 = -1.4
 
-        sigma_slm = sigma_Fx(slm)
+        sigma_slm = f.sigma_Fx(slm)
         self.Env_nutrients = env - self.g * sigma_slm * env
         
 
 
         #rule 2
         '''
-        self.Slime_Amount = ((1-self.b)*slm - self.e*mq*make_1(slm) #slime burn
+        self.Slime_Amount = ((1-self.b)*slm - self.e*mq*f.make_1(slm) #slime burn
                             + self.p*( (torch.einsum('ijkl,kl->ij', pf, slm) - torch.einsum('ijkk',pf)*slm) ) 
-                            + make_1(env) * make_1(slm) * self.g * slm) #convert nutrient   Vincent forgot about add nutrient
+                            + f.make_1(env) * f.make_1(slm) * self.g * slm) #convert nutrient   Vincent forgot about add nutrient
         '''
         #can't take care negative :D
         
@@ -245,20 +243,20 @@ class environment:
         
         self.Slime_Amount = (
                             (1-self.b)*slm + self.g*sigma_slm*env - self.e*mq*sigma_slm #Vincent forgot env for self.g*sigma_slm*env
-                            + self.p*(   torch.einsum('ijkl,kl->ij', pf, slm)  * sigma_Fx( (1-self.p) * slm)   )
-                            - torch.sum( pf ,(2,3)) * slm * sigma_Fx( (1-self.p) * slm) 
+                            + self.p*(   torch.einsum('ijkl,kl->ij', pf, slm)  * f.sigma_Fx( (1-self.p) * slm)   )
+                            - torch.sum( pf ,(2,3)) * slm * f.sigma_Fx( (1-self.p) * slm) 
                             )
 
         
         
         #rule 3
-        # self.Compound_Quantity = (1-self.d)*comp - self.c*mq*make_1(comp) + self.p*( (torch.einsum('ijkl,kl->ij', pf, comp) - torch.einsum('ijkk',pf)*comp) )
+        # self.Compound_Quantity = (1-self.d)*comp - self.c*mq*f.make_1(comp) + self.p*( (torch.einsum('ijkl,kl->ij', pf, comp) - torch.einsum('ijkk',pf)*comp) )
 
     
         self.Compound_Quantity = (
                                  (1-self.d) * comp + self.c*mq*sigma_slm 
-                                 + self.p * (   torch.einsum('ijkl,kl->ij', pf, comp) * sigma_Fx( (1-self.p) * slm)   )
-                                 -  torch.sum( pf, (2,3)) * comp * sigma_Fx( (1-self.p) * slm )
+                                 + self.p * (   torch.einsum('ijkl,kl->ij', pf, comp) * f.sigma_Fx( (1-self.p) * slm)   )
+                                 -  torch.sum( pf, (2,3)) * comp * f.sigma_Fx( (1-self.p) * slm )
                                  )
 
     def __str__(self):
