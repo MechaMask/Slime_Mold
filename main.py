@@ -3,7 +3,7 @@ import torch
 from torch.nn.functional import relu as relu
 import function as f
 
-sim_length = 2
+sim_length = 60
 delta_threshold = f.delta_threshold
 
  
@@ -94,6 +94,8 @@ class environment:
         #checks if they are all equal length
          and f.valid_grid_length(nutrients_matrix, slime_matrix, compound_matrix))     
         ):
+         print("Invalid map")
+         print("Initializing default map")
          self.default_map()
         else:
             self.x = len(nutrients_matrix[0])
@@ -273,7 +275,7 @@ grid = environment(input_map = mapinfo)
  
 
 for frame in range(sim_length):
-    if frame % 100 == 0:
+    if frame % 10 == 0:
        
         print("Frame #",frame)
         print("Total Nutrients: ",torch.sum(grid.Env_nutrients))
@@ -293,7 +295,7 @@ for frame in range(sim_length):
         # print("")
         # print("Pump Fraction:")
         # print(grid.Pump_Fraction)
-        print("")
+        # print("")
         print("------------")
         print("")
         print("")
