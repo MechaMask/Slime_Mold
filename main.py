@@ -219,7 +219,7 @@ class environment:
         #   env = 4 - 5.4 = -1.4
 
         sigma_slm = f.sigma_Fx(slm)
-        self.Env_nutrients = (torch.ones(sigma_slm.shape) - self.g * sigma_slm )* env
+        self.Env_nutrients = (1- self.g )* sigma_slm * env
         
 
 
@@ -242,36 +242,17 @@ class environment:
         #torch.einsum('ijkk',A)Partial trace
         #torch.einsum('ijkl,kl->ij', A, B) Multiplication
 
-        #this bit makes sure the pump variable is nonzero only for neighbors of a cell
-        # import networkx as nx
-        # import itertools
-        # test=True
-        # G = nx.grid_2d_graph(10,10)
-        # adjacency = nx.adjacency_matrix(G).todense()
-        # adjacency = torch.array(adjacency)
-        # shape = pf.shape
-        # pf = pf.view(adjacency.shape)*adjacency
-        # pf = pf.view(shape)
-
-        # #this makes sure the code above does what we expect
-        # if test == True:
-        #     nonzero = (pf !=0).nonzero()
-
-
-            # l = itertools.product([-1,0,1],[-1,0,1])
-            # l = list(l).remove((0,0))
-            # for i,j in itertools.product(range(10),range(10)):
-            #     for nbd in l:
-                    
-            #     assert 
         
-        #big_sigma_slm is an expanded version of sigma_slm to use on the order 4 tensor pf
-        big_sigma_slm = f.sigma_Fx((1 - self.p)*slm).expand(pf.shape)
-        pf = pf * big_sigma_slm
+        #pump_sigma_slm is an expanded version of sigma_slm to use on the order 4 tensor pf
+        pump_sigma_slm = f.sigma_Fx((1 - self.p)*slm).expand(pf.shape)
+        pf = pf * pump_sigma_slm
+        
+        mq_sigma_slm = f.sigma_Fx((1-self.e)*slm)
+        mq = mq * mq_sigma_slm
 
         self.Slime_Amount = (
                             (1-self.b)*slm + (self.g*env - self.e*mq)*sigma_slm 
-                            + self.p*( torch.einsum('ij,ijkl->kl', slm, pf) - torch.sum( pf ,(2,3)) * slm )
+                            + self.p*( torch.einsum('ij, ijkl->kl', slm, pf) - torch.sum( pf, (2,3)) * slm )
                             )
 
         
@@ -282,7 +263,7 @@ class environment:
     
         self.Compound_Quantity = (
                                  (1-self.d) * comp + self.c*mq*sigma_slm 
-                                 + self.p * ( torch.einsum('ij,ijkl->kl', comp, pf) - torch.sum( pf, (2,3)) * comp )
+                                 + self.p * ( torch.einsum('ij, ijkl->kl', comp, pf) - torch.sum( pf, (2,3)) * comp )
                                  )
 
     def __str__(self):
@@ -305,15 +286,15 @@ for frame in range(sim_length):
         print("Total Nutrients: ",torch.sum(grid.Env_nutrients))
         print("Total Slime: ",torch.sum(grid.Slime_Amount))
         print("------------")
-        print("Enviromental Nutrients")
-        print(grid.Env_nutrients)
-        print("")
+        # print("Enviromental Nutrients")
+        # print(grid.Env_nutrients)
+        # print("")
         print("Slime Amount: ")
         print(grid.Slime_Amount)
         print("")
-        print("Compound Quantity: ")
-        print(grid.Compound_Quantity)
-        print("")
+        # print("Compound Quantity: ")
+        # print(grid.Compound_Quantity)
+        # print("")
         # print("Emit:")
         # print(grid.Emit_Quantity)
         # print("")
