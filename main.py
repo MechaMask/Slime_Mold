@@ -1,6 +1,6 @@
 import json
 import torch
-from torch.nn.functional import relu as relu
+from torch.nn.functional import softmax
 import function as f
 
 sim_length = 60
@@ -12,7 +12,7 @@ with open('map.json') as json_file:
 print(mapinfo)
 print(mapinfo['slime'])
 class environment:
-    def __init__(self, input_map = None, x=10,y=10, rand_seed = torch.seed(), p = 0.1, g = 0.1, b = 0.1, d = 0.1, c = 0.1, e = 0.1, ):
+    def __init__(self, input_map = None, x=10,y=10, rand_seed = torch.seed(), p = 0.3, g = 0.1, b = 0.1, d = 0.1, c = 0.1, e = 0.1, ):
         self.x = x 
         self.y = y 
         self.Env_nutrients = torch.zeros((x,y),dtype=torch.float32)
@@ -242,17 +242,44 @@ class environment:
         #torch.einsum('ijkk',A)Partial trace
         #torch.einsum('ijkl,kl->ij', A, B) Multiplication
 
+        #this bit makes sure the pump variable is nonzero only for neighbors of a cell
+        import networkx as nx
+
+        G = nx.grid_2d_graph(10,10)
+        adjacency = nx.adjacency_matrix(G).todense()
+        adjacency = torch.tensor(adjacency)
+        shape = pf.shape
+        pf = pf.view(adjacency.shape)*adjacency
+        pf = pf.view(shape)
+
+        #this makes sure the code above does what we expect
+        # import itertools
+        # if True:
+        #     nonzero = (pf !=0).nonzero()
+
+
+        #     l = itertools.product([-1,0,1],[-1,0,1])
+        #     l = list(l).remove((0,0))
+        #     for i,j in itertools.product(range(10),range(10)):
+        #         for nbd in l:
+                    
+        #         assert 
+        # TODO: Complete this test
         
         #pump_sigma_slm is an expanded version of sigma_slm to use on the order 4 tensor pf
-        pump_sigma_slm = f.sigma_Fx((1 - self.p)*slm).expand(pf.shape)
-        pf = pf * pump_sigma_slm
+        # pump_sigma_slm = f.sigma_Fx((1 - self.p)*slm).expand(pf.shape)
+        # pf = pf * pump_sigma_slm
+        shape = pf.shape
+        n = shape[0]
+        pf = softmax(pf.view(n**2,n**2), dim=1)
+        pf = pf.view(shape)
         
         mq_sigma_slm = f.sigma_Fx((1-self.e)*slm)
         mq = mq * mq_sigma_slm
 
         self.Slime_Amount = (
-                            (1-self.b)*slm + (self.g*env - self.e*mq)*sigma_slm 
-                            + self.p*( torch.einsum('ij, ijkl->kl', slm, pf) - torch.sum( pf, (2,3)) * slm )
+                            (1-self.b-self.p)*slm + (self.g*env - self.e*mq)*sigma_slm 
+                            + self.p * torch.einsum('ij, ijkl->kl', slm, pf)
                             )
 
         
@@ -262,8 +289,8 @@ class environment:
 
     
         self.Compound_Quantity = (
-                                 (1-self.d) * comp + self.c*mq*sigma_slm 
-                                 + self.p * ( torch.einsum('ij, ijkl->kl', comp, pf) - torch.sum( pf, (2,3)) * comp )
+                                 (1-self.d-self.p) * comp + self.c*mq*sigma_slm 
+                                 + self.p *  torch.einsum('ij, ijkl->kl', comp, pf)
                                  )
 
     def __str__(self):
