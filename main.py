@@ -12,9 +12,10 @@ with open('map.json') as json_file:
 print(mapinfo)
 print(mapinfo['slime'])
 class environment:
-    def __init__(self, input_map = None, x=10,y=10, rand_seed = torch.seed(), p = 0.1, g = 0.1, b = 0.1, d = 0.1, c = 0.1, e = 0.1, ):
+    def __init__(self, input_map = None, x=10,y=10, rand_seed = torch.seed(), p = 0.1, g = 0.1, b = 0.1, d = 0.1, c = 0.1, e = 0.1, u =3, max_cons = 100 , max_location = 5):
         self.x = x 
         self.y = y 
+        
         self.Env_nutrients = torch.zeros((x,y),dtype=torch.float32)
         self.Slime_Amount = torch.zeros((x,y),dtype=torch.float32)
         self.Compound_Quantity = torch.zeros((x,y),dtype=torch.float32)
@@ -24,6 +25,9 @@ class environment:
         #1 S Slime mold cytoplasm amount
         #2 C Communication compound quantity
         
+        self.u = u
+        self.max_cons = max_cons 
+        self.max_location = max_location
         #p pumping proportion
         self.p = p 
         
@@ -63,21 +67,29 @@ class environment:
     
     def random_map(self,rand_seed):
         torch.manual_seed(rand_seed)
-        max_cons = 100 
-        max_location = 5 
         max_index = self.x*self.y
-        torch.rand((self.x,self.y), dtype=torch.float32) *self.g*max_cons # replace 100 with a hyper parameter
-        k = torch.randint(1, max_location, (1,)) #replace 5 with a variable to be a hyper parameter
-        perm = torch.randperm(0, max_index) #a random permutation of numbers between o - maxindex - 1  
+        nutrients = torch.rand((self.x,self.y), dtype=torch.float32) *self.g*self.u #generate random tensor with uniform nutirents
+       # k = torch.randint(1, self.max_location , (1,)) #determine how many high concentraition spots
+        k= torch.tensor([5])
+        perm = torch.randperm(max_index) #a random permutation of numbers between o - maxindex - 1  
         sample = perm[:k[0]] # select the first k from the random permutation
 
-        # if (i in high_cons_ind):
-        #     generate(high=true,sample[i])
-        # else:
+      
+      
 
+        for index in range(len(sample)):
+            i = sample[index]//self.x
+            j = sample[index]%self.x
+            nutrients[i][j] = self.g*self.max_cons - nutrients[i][j]  
 
-        # self.Env_nutrients = #an array of X by Y that has values of the amounts of nutrients
-        # self.Slime_Amount =
+        slime =  torch.zeros((self.x,self.y), dtype=torch.float32)
+        slm_i = (perm[k[0]+1])//self.x
+        slm_j = (perm[k[0]+1])%self.x
+        slime[slm_i][slm_j] = self.max_cons*0.2 #how much slime molds do we add
+        nutrients[slm_i][slm_j] = nutrients[slm_i][slm_j] + self.max_cons*0.15 #how much nutrient for the slime molds
+
+        self.Env_nutrients = nutrients
+        self.Slime_Amount =slime
         
    
         
@@ -105,13 +117,6 @@ class environment:
             self.Compound_Quantity =  torch.tensor(compound_matrix, dtype=torch.float32)
             
            
-
-# %3= 1
-# 4//3 = 1     
-
-# 1 2 3 
-# 4 5 6 
-# 7 8 9
 
         #make sure they are all equal in size and are 2d arrays
 
@@ -270,8 +275,8 @@ class environment:
 
 
     
-
-grid = environment(input_map = mapinfo)
+input_map = mapinfo
+grid = environment(rand_seed=7842)
  
 
 for frame in range(sim_length):
