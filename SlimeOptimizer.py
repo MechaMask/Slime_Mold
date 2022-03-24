@@ -52,7 +52,7 @@ class slime(torch.nn.Module):
         self.register_parameter(name='w', param=torch.nn.Parameter(torch.tensor(3., requires_grad=True)))
         self.register_parameter(name='b', param=torch.nn.Parameter(torch.tensor(1., requires_grad=True)))
 
-        #change the layers
+        #layers
     
     def forward(self,x):
         #feed forward???
