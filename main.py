@@ -260,11 +260,11 @@ class environment:
         # self.Compound_Quantity = (1-self.d)*comp - self.c*mq*f.make_1(comp) + self.p*( (torch.einsum('ijkl,kl->ij', pf, comp) - torch.einsum('ijkk',pf)*comp) )
 
     
-        self.Compound_Quantity = (
-                                 (1-self.d) * comp + self.c*mq*sigma_slm 
-                                 + self.p * (   torch.einsum('ijkl,kl->ij', pf, comp) * f.sigma_Fx( (1-self.p) * slm)   )
-                                 -  torch.sum( pf, (2,3)) * comp * f.sigma_Fx( (1-self.p) * slm )
-                                 )
+        # self.Compound_Quantity = (
+        #                          (1-self.d) * comp + self.c*mq*sigma_slm 
+        #                          + self.p * (   torch.einsum('ijkl,kl->ij', pf, comp) * f.sigma_Fx( (1-self.p) * slm)   )
+        #                          -  torch.sum( pf, (2,3)) * comp * f.sigma_Fx( (1-self.p) * slm )
+        #                          )
 
     def __str__(self):
         '''
