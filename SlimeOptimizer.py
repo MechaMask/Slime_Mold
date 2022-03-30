@@ -55,14 +55,15 @@ class slime(torch.nn.Module):
         #layers
               
         self.layers = torch.nn.Sequential(
-         torch.nn.Flatten(),
+         #torch.nn.Flatten(),
          torch.nn.Linear(2, 4),
          torch.nn.ReLU(),
          torch.nn.Linear(4, 8),
          torch.nn.ReLU(),
          torch.nn.Linear(8, 8),
          torch.nn.ReLU(),
-         torch.nn.Linear(8, 8))
+         torch.nn.Linear(8, 8),
+         torch.nn.Softmax())
 
 
     #(self.x , self.y * 2)

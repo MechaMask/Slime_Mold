@@ -2,9 +2,9 @@ import json
 import torch
 from torch.nn.functional import relu as relu
 import function as f
-import SlimeOptimizer as slime
+import SlimeOptimizer as slime_class
 
-sim_length = 60
+sim_length = 101
 delta_threshold = f.delta_threshold
 
  
@@ -280,11 +280,11 @@ input_map = mapinfo
 grid = environment(rand_seed=7842)
 
 #Initialize the MLP
-mlp = slime()
+mlp = slime_class.slime()
 
 # Define the loss function and optimizer
-optim_function = torch.nn.CrossEntropyLoss()
-optimizer = slime.slime_optimizer(mlp.parameters(), lr=1e-4) 
+optim_function = torch.sum(grid.Slime_Amount)
+optimizer = slime_class.slime_optimizer(mlp.parameters(), lr=1e-4) 
 
 for frame in range(sim_length):
     if frame % 10 == 0:
@@ -313,22 +313,34 @@ for frame in range(sim_length):
         print("")
         print("---updated--")
  
-        #5,5 ->  pump[3][3] pump[3][4] pump[3][5] pump[4][3] pump[4][5] pump[5][3] pump[5][4] pump[5][5]
+
+    input_tensor = torch.tensor([grid.Slime_Amount[4][4],grid.Env_nutrients[4][4]])
+    output_layer = mlp.forward(input_tensor)    
+    grid.Pump_Fraction[4][4][3][3] = output_layer[0]
+    grid.Pump_Fraction[4][4][3][4] = output_layer[1]
+    grid.Pump_Fraction[4][4][3][5] = output_layer[2]
+    grid.Pump_Fraction[4][4][4][3] = output_layer[3]
+    grid.Pump_Fraction[4][4][4][5] = output_layer[4]
+    grid.Pump_Fraction[4][4][5][3] = output_layer[5]
+    grid.Pump_Fraction[4][4][5][4] = output_layer[6]
+    grid.Pump_Fraction[4][4][5][5] = output_layer[7]
+ 
+    grid.update()
+
+    
+    if frame % 100 == 0:
+        print("OPTIMIZATION STEP")
+        #4,4 ->  pump[3][3] pump[3][4] pump[3][5] pump[4][3] pump[4][5] pump[5][3] pump[5][4] pump[5][5]
         # 3,3 	3,4 	3,5
         # 4,3 	4,4 	4,5
         # 5,3 	5,4 	5,5 
-        grid.Slime_Amount[4][4] = mlp.input
-        grid.Env_nutrients[4][4] = mlp.input
-        grid.Pump_Fraction[3][3] = mlp.output
-        grid.Pump_Fraction[3][4] = mlp.output
-        grid.Pump_Fraction[3][5] = mlp.output
-        grid.Pump_Fraction[4][3] = mlp.output
-        grid.Pump_Fraction[4][5] = mlp.output
-        grid.Pump_Fraction[5][3] = mlp.output
-        grid.Pump_Fraction[5][4] = mlp.output
-        grid.Pump_Fraction[5][5] = mlp.output
+        outputs = mlp(input_tensor)
 
-    grid.update()
+        optimizer.step()
+        print("------------")
+        print("")
+        print("")
+        print("---updated optimzor--")
 
 
 
