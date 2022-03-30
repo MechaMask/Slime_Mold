@@ -49,15 +49,37 @@ class slime(torch.nn.Module):
         super(slime, self).__init__()
 
         #parameters
-        self.register_parameter(name='w', param=torch.nn.Parameter(torch.tensor(3., requires_grad=True)))
-        self.register_parameter(name='b', param=torch.nn.Parameter(torch.tensor(1., requires_grad=True)))
+        # self.register_parameter(name='w', param=torch.nn.Parameter(torch.tensor(3., requires_grad=True)))
+        # self.register_parameter(name='b', param=torch.nn.Parameter(torch.tensor(1., requires_grad=True)))
 
         #layers
-    
+              
+        self.layers = torch.nn.Sequential(
+         torch.nn.Flatten(),
+         torch.nn.Linear(2, 4),
+         torch.nn.ReLU(),
+         torch.nn.Linear(4, 8),
+         torch.nn.ReLU(),
+         torch.nn.Linear(8, 8),
+         torch.nn.ReLU(),
+         torch.nn.Linear(8, 8))
+
+
+    #(self.x , self.y * 2)
+
+
     def forward(self,x):
         #feed forward???
-        return self.w*x + self.b
+        output = self.layers(x)
+        return output
 
-
+#slime model
+#3 layer network Relu function for the actiavtion function
+#2 inputs slime. environmanetal
+#outputs 8, the outputs directly modify the Pump tensor.
+#so basically if the inputs are in i,j the outputs will be placed on the pump matrix on i +- 1, j+-1 
 
 #use optimization Function
+#for an index i, j insert slime[i][j] and env_nut[i][j] -> neural network -> 8 outputs make it so that for example: pump[i-1][j+1] = first output node 
+
+

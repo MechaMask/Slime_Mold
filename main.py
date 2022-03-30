@@ -2,6 +2,7 @@ import json
 import torch
 from torch.nn.functional import relu as relu
 import function as f
+import SlimeOptimizer as slime
 
 sim_length = 60
 delta_threshold = f.delta_threshold
@@ -82,14 +83,14 @@ class environment:
             j = sample[index]%self.x
             nutrients[i][j] = self.g*self.max_cons - nutrients[i][j]  
 
-        slime =  torch.zeros((self.x,self.y), dtype=torch.float32)
+        slime_cont =  torch.zeros((self.x,self.y), dtype=torch.float32)
         slm_i = (perm[k[0]+1])//self.x
         slm_j = (perm[k[0]+1])%self.x
-        slime[slm_i][slm_j] = self.max_cons*0.2 #how much slime molds do we add
+        slime_cont[slm_i][slm_j] = self.max_cons*0.2 #how much slime molds do we add
         nutrients[slm_i][slm_j] = nutrients[slm_i][slm_j] + self.max_cons*0.15 #how much nutrient for the slime molds
 
         self.Env_nutrients = nutrients
-        self.Slime_Amount =slime
+        self.Slime_Amount =slime_cont
         
    
         
@@ -277,7 +278,13 @@ class environment:
     
 input_map = mapinfo
 grid = environment(rand_seed=7842)
- 
+
+#Initialize the MLP
+mlp = slime()
+
+# Define the loss function and optimizer
+optim_function = torch.nn.CrossEntropyLoss()
+optimizer = slime.slime_optimizer(mlp.parameters(), lr=1e-4) 
 
 for frame in range(sim_length):
     if frame % 10 == 0:
@@ -305,6 +312,22 @@ for frame in range(sim_length):
         print("")
         print("")
         print("---updated--")
+ 
+        #5,5 ->  pump[3][3] pump[3][4] pump[3][5] pump[4][3] pump[4][5] pump[5][3] pump[5][4] pump[5][5]
+        # 3,3 	3,4 	3,5
+        # 4,3 	4,4 	4,5
+        # 5,3 	5,4 	5,5 
+        grid.Slime_Amount[4][4] = mlp.input
+        grid.Env_nutrients[4][4] = mlp.input
+        grid.Pump_Fraction[3][3] = mlp.output
+        grid.Pump_Fraction[3][4] = mlp.output
+        grid.Pump_Fraction[3][5] = mlp.output
+        grid.Pump_Fraction[4][3] = mlp.output
+        grid.Pump_Fraction[4][5] = mlp.output
+        grid.Pump_Fraction[5][3] = mlp.output
+        grid.Pump_Fraction[5][4] = mlp.output
+        grid.Pump_Fraction[5][5] = mlp.output
+
     grid.update()
 
 
