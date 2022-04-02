@@ -4,8 +4,18 @@ from torch.nn.functional import relu as relu
 import function as f
 import SlimeOptimizer as slime_class
 
-sim_length = 101
+sim_length = 20
 delta_threshold = f.delta_threshold
+
+#BEGIN visualization
+import cv2
+import numpy as np
+import random
+
+visualization_flag = False   #flag to turn visualization on and off
+#END visualization
+
+
 
  
 with open('map.json') as json_file:
@@ -277,7 +287,42 @@ class environment:
 
     
 input_map = mapinfo
-grid = environment(rand_seed=7842)
+#grid = environment(rand_seed=7842)
+grid = environment(input_map)
+
+#BEGIN visualization
+if (visualization_flag):
+    #visualization      iniialize video writer with motion-jpeg codec
+    output_path = ''
+    fileName = 'output'
+    video_format = '.avi'
+    fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
+    fps = 5.0
+
+    frame_width = 1280 if (grid.x * 50 > 1280) else (grid.x * 50)
+    frame_height = 720 if (grid.y * 50 > 720) else (grid.y * 50)
+    x_portion = (frame_width / grid.x)
+    y_portion = (frame_height / grid.y)
+
+    result = cv2.VideoWriter(output_path + fileName + video_format, fourcc, fps, (frame_width , frame_height ), isColor=True)
+
+    #visualization      create empty grid, draw grid lines
+    empty_grid_img = np.zeros([frame_height, frame_width,3], dtype=np.uint8)    #blank image, background black
+    empty_grid_img.fill(255)                                                    #background white
+    color_black = (0,0,0)
+    thickness = 1
+    for v_x in range(1, grid.x):                                                #draw vertical lines
+        x_index = round(v_x * x_portion)
+        #line(img, pt1, pt2, color, thickness)
+        cv2.line(empty_grid_img, (x_index, 0), (x_index, frame_height), color_black, thickness)
+    for h_y in range(1, grid.y):                                                #draw horizontal lines
+        y_index = round(h_y * y_portion)
+        cv2.line(empty_grid_img, (0, y_index), (frame_width, y_index), color_black, thickness)
+#END visualization
+
+
+
+
 
 #Initialize the MLP
 mlp = slime_class.slime()
@@ -287,7 +332,46 @@ optim_function = torch.sum(grid.Slime_Amount)
 optimizer = slime_class.slime_optimizer(mlp.parameters(), lr=1e-4) 
 
 for frame in range(sim_length):
-    if frame % 10 == 0:
+    #BEGIN visualization
+    if (visualization_flag):
+        # # decrease design:
+        # #   slimemold       lighter in green color.
+        # #   nutrient        shrink in circle size
+        # #   cc              less yellow dots
+        current_frame = empty_grid_img.copy()
+        for x in range(grid.x):
+            for y in range(grid.y):
+                x_left = round(x * x_portion) + 1
+                y_top = round(y * y_portion) + 1
+                x_right = round((x+1) * x_portion) - 1
+                y_bottom = round((y+1) * y_portion) - 1
+                #slime
+                slime_percent = 1.0 if (grid.Slime_Amount[x][y].item() > 20.) else (grid.Slime_Amount[x][y].item() / 20.) #slime 0. ~ 20.
+                #   slime amount / max  → max = 50 → 1/50 = 0.02        
+                slime_color = (round((255-80) * (1 - slime_percent) + 80) ,255 ,round((1 - slime_percent) * 255)) # blue green red
+                cv2.rectangle(current_frame,(x_left, y_top), (x_right,y_bottom),slime_color,-1)
+                #nutrient
+                nutrient_color = (0, 80, 255)
+                center = (round(x*x_portion + x_portion/2), round(y*y_portion + y_portion/2))
+                env_percent =  1.2 if (grid.Env_nutrients[x][y].item() > grid.g * 100 * 1.2) else (grid.Env_nutrients[x][y].item() / grid.g / 100) #nutrient 0 ~ 100*g
+                #env_percent = (grid.Env_nutrients[x][y].item() / grid.g / 100) #no control in size exceed limit
+                radius = round(y_portion / 2 * env_percent)
+                cv2.circle(current_frame, center, radius, nutrient_color, -1)
+                #cc
+                cc_amount = round(2 *grid.Compound_Quantity[x][y].item()) #amount of cc dots
+                cc_color = (0,255,255)
+                for i in range(cc_amount):
+                    rand_x = random.randint(round(x_left + x_portion/5), round(x_right - x_portion/5))
+                    rand_y = random.randint(round(y_top + y_portion/5), round(y_bottom - y_portion/5))
+                    cv2.circle(current_frame, (rand_x, rand_y), 3, cc_color, -1)
+
+        #cv2.imshow('output frame',current_frame)    #show frame
+        #cv2.waitKey(0)
+        result.write(current_frame)                         #write frame
+    #END visualization
+
+
+    if frame % 1 == 0:
        
         print("Frame #",frame)
         print("Total Nutrients: ",torch.sum(grid.Env_nutrients))
@@ -312,19 +396,20 @@ for frame in range(sim_length):
         print("")
         print("")
         print("---updated--")
- 
 
+    #ask vincent f pump is working as intended.
+    
     input_tensor = torch.tensor([grid.Slime_Amount[4][4],grid.Env_nutrients[4][4]])
     output_layer = mlp.forward(input_tensor)    
-    grid.Pump_Fraction[4][4][3][3] = output_layer[0]
-    grid.Pump_Fraction[4][4][3][4] = output_layer[1]
-    grid.Pump_Fraction[4][4][3][5] = output_layer[2]
-    grid.Pump_Fraction[4][4][4][3] = output_layer[3]
-    grid.Pump_Fraction[4][4][4][5] = output_layer[4]
-    grid.Pump_Fraction[4][4][5][3] = output_layer[5]
-    grid.Pump_Fraction[4][4][5][4] = output_layer[6]
-    grid.Pump_Fraction[4][4][5][5] = output_layer[7]
- 
+    # grid.Pump_Fraction[4][4][3][3] = output_layer[0]
+    # grid.Pump_Fraction[4][4][3][4] = output_layer[1]
+    # grid.Pump_Fraction[4][4][3][5] = output_layer[2]
+    # grid.Pump_Fraction[4][4][4][3] = output_layer[3]
+    # grid.Pump_Fraction[4][4][4][5] = output_layer[4]
+    # grid.Pump_Fraction[4][4][5][3] = output_layer[5]
+    # grid.Pump_Fraction[4][4][5][4] = output_layer[6]
+    # grid.Pump_Fraction[4][4][5][5] = output_layer[7]
+    f.update_pump(4,4,output_layer,grid)
     grid.update()
 
     
@@ -337,6 +422,7 @@ for frame in range(sim_length):
         outputs = mlp(input_tensor)
 
         optimizer.step()
+        #backward propogation???
         print("------------")
         print("")
         print("")
@@ -346,3 +432,9 @@ for frame in range(sim_length):
 
 
 
+#BEGIN visualization
+#clean up
+if (visualization_flag):
+    result.release()
+    cv2.destroyAllWindows() #close all frame windows
+#END visualization
