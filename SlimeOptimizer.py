@@ -72,7 +72,7 @@ class slime(torch.nn.Module):
          torch.nn.Linear(9, 8),
          torch.nn.ReLU(),
          torch.nn.Linear(8, 8),
-         torch.nn.Softmax(),
+         torch.nn.ReLU(),
          torch.nn.Linear(8, 8),
          torch.nn.Softmax())
 
