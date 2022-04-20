@@ -1,4 +1,5 @@
 import json
+from turtle import backward
 import torch
 from torch.nn.functional import relu as relu
 import function as f
@@ -12,7 +13,7 @@ import cv2
 import numpy as np
 import random
 
-visualization_flag = False   #flag to turn visualization on and off
+visualization_flag = True   #flag to turn visualization on and off
 #END visualization
 
 
@@ -277,6 +278,9 @@ class environment:
         #                          -  torch.sum( pf, (2,3)) * comp * f.sigma_Fx( (1-self.p) * slm )
         #                          )
 
+
+
+
     def __str__(self):
         '''
             
@@ -339,26 +343,32 @@ for frame in range(sim_length):
         # #   nutrient        shrink in circle size
         # #   cc              less yellow dots
         current_frame = empty_grid_img.copy()
-        for x in range(grid.x):
-            for y in range(grid.y):
+        for y in range(grid.y):
+            for x in range(grid.x):
                 x_left = round(x * x_portion) + 1
                 y_top = round(y * y_portion) + 1
                 x_right = round((x+1) * x_portion) - 1
                 y_bottom = round((y+1) * y_portion) - 1
                 #slime
-                slime_percent = 1.0 if (grid.Slime_Amount[x][y].item() > 20.) else (grid.Slime_Amount[x][y].item() / 20.) #slime 0. ~ 20.
+                slime_percent = 1.0 if (grid.Slime_Amount[y][x].item() > 20.) else (grid.Slime_Amount[y][x].item() / 20.) #slime 0. ~ 20.
                 #   slime amount / max  → max = 50 → 1/50 = 0.02        
-                slime_color = (round((255-80) * (1 - slime_percent) + 80) ,255 ,round((1 - slime_percent) * 255)) # blue green red
+                if (slime_percent == 0):
+                    slime_color = (255,255,255)
+                else:
+                    slime_color = (round((167-38) * (1 - slime_percent) + 38) , round((255-116) * (1 - slime_percent) + 116) , round(126 * (1 - slime_percent))) # blue green red
+                    #       167~38          255~116     126~0
+                    #slime_color = (round((255-80) * (1 - slime_percent) + 80) ,255 ,round((1 - slime_percent) * 255)) # blue green red
+                    #       255 ~ 80        255         255 ~ 0
                 cv2.rectangle(current_frame,(x_left, y_top), (x_right,y_bottom),slime_color,-1)
                 #nutrient
                 nutrient_color = (0, 80, 255)
                 center = (round(x*x_portion + x_portion/2), round(y*y_portion + y_portion/2))
-                env_percent =  1.2 if (grid.Env_nutrients[x][y].item() > grid.g * 100 * 1.2) else (grid.Env_nutrients[x][y].item() / grid.g / 100) #nutrient 0 ~ 100*g
-                #env_percent = (grid.Env_nutrients[x][y].item() / grid.g / 100) #no control in size exceed limit
+                env_percent =  1.0 if (grid.Env_nutrients[y][x].item() > grid.g * 100 * 1.0) else (grid.Env_nutrients[y][x].item() / grid.g / 100) #nutrient 0 ~ 100*g
+                #env_percent = (grid.Env_nutrients[y][x].item() / grid.g / 100) #no control in size exceed limit
                 radius = round(y_portion / 2 * env_percent)
                 cv2.circle(current_frame, center, radius, nutrient_color, -1)
                 #cc
-                cc_amount = round(2 *grid.Compound_Quantity[x][y].item()) #amount of cc dots
+                cc_amount = round(2 *grid.Compound_Quantity[y][x].item()) #amount of cc dots
                 cc_color = (0,255,255)
                 for i in range(cc_amount):
                     rand_x = random.randint(round(x_left + x_portion/5), round(x_right - x_portion/5))
@@ -398,9 +408,27 @@ for frame in range(sim_length):
         print("---updated--")
 
     #ask vincent f pump is working as intended.
+
+    #HERE
+    # self.x = len(nutrients_matrix[0]) length of the inner lists
+    # self.y = len(nutrients_matrix) number of inner lists
+
+
+    #add a deep copy of padded slime mold   
+    slime_padded = f.padding(grid.Slime_Amount)
     
-    input_tensor = torch.tensor([grid.Slime_Amount[4][4],grid.Env_nutrients[4][4]])
-    output_layer = mlp.forward(input_tensor)    
+    for y in range(grid.y):
+            for x in range(grid.x):
+                input_tensor = torch.tensor(f.input_cells(y,x,slime_padded))
+                output_layer = mlp.forward(input_tensor)
+                f.update_pump(y,x,grid.Pump_Fraction,output_layer)
+    grid.update()
+
+
+
+            
+    # input_tensor = torch.tensor([grid.Slime_Amount[4][4],grid.Env_nutrients[4][4]])
+    # output_layer = mlp.forward(input_tensor)    
     # grid.Pump_Fraction[4][4][3][3] = output_layer[0]
     # grid.Pump_Fraction[4][4][3][4] = output_layer[1]
     # grid.Pump_Fraction[4][4][3][5] = output_layer[2]
@@ -409,8 +437,8 @@ for frame in range(sim_length):
     # grid.Pump_Fraction[4][4][5][3] = output_layer[5]
     # grid.Pump_Fraction[4][4][5][4] = output_layer[6]
     # grid.Pump_Fraction[4][4][5][5] = output_layer[7]
-    f.update_pump(4,4,output_layer,grid)
-    grid.update()
+    # f.update_pump(4,4,output_layer,grid)
+  
 
     
     if frame % 100 == 0:
@@ -420,9 +448,9 @@ for frame in range(sim_length):
         # 4,3 	4,4 	4,5
         # 5,3 	5,4 	5,5 
         outputs = mlp(input_tensor)
-
+        optimizer.zero_grad()
+        #torch.sum(grid.Slime_Amount).backward()
         optimizer.step()
-        #backward propogation???
         print("------------")
         print("")
         print("")

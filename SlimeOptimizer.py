@@ -9,7 +9,7 @@ import numpy as np
 def F (params: List[torch.Tensor], d_p_list: List[torch.Tensor], lr:float):
     for i, param in enumerate(params):
         d_p = d_p_list[i]
-        param.add_(d_p, alpha=-lr)
+        param.add_(d_p, alpha=lr)
 
 
 class slime_optimizer(Optimizer):
@@ -42,7 +42,16 @@ class slime_optimizer(Optimizer):
              F(params_with_grad,d_p_list,lr)
          return loss
                  
-        
+
+# class slime_fitness(torch.nn._Loss):
+#      __constants__ = ['reduction']
+
+#     def __init__(self, size_average=None, reduce=None, reduction: str = 'mean') -> None:
+#         super(MSELoss, self).__init__(size_average, reduce, reduction)
+
+#     def forward(self, input: Tensor, target: Tensor) -> Tensor:
+#         return F.mse_loss(input, target, reduction=self.reduction
+
 class slime(torch.nn.Module):
     
     def __init__(self):
@@ -56,12 +65,14 @@ class slime(torch.nn.Module):
               
         self.layers = torch.nn.Sequential(
          #torch.nn.Flatten(),
-         torch.nn.Linear(2, 4),
+         torch.nn.Linear(9, 9),
          torch.nn.ReLU(),
-         torch.nn.Linear(4, 8),
+         torch.nn.Linear(9, 9),
+         torch.nn.ReLU(),
+         torch.nn.Linear(9, 8),
          torch.nn.ReLU(),
          torch.nn.Linear(8, 8),
-         torch.nn.ReLU(),
+         torch.nn.Softmax(),
          torch.nn.Linear(8, 8),
          torch.nn.Softmax())
 
