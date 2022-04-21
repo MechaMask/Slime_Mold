@@ -207,11 +207,11 @@ class environment:
 
     def update(self):
         #Eij = Eij - gSij
-        env = self.Env_nutrients
-        slm = self.Slime_Amount
-        comp = self.Compound_Quantity 
-        pf = self.Pump_Fraction
-        mq = self.Emit_Quantity 
+        env = self.Env_nutrients.clone()
+        slm = self.Slime_Amount.clone()
+        comp = self.Compound_Quantity.clone() 
+        pf = self.Pump_Fraction.clone()
+        mq = self.Emit_Quantity.clone() 
 
         
         #rule 1
@@ -235,9 +235,16 @@ class environment:
         #   slm = 5.4
         #   env = 4 - 5.4 = -1.4
 
-        sigma_slm = f.sigma_Fx(slm)
-        self.Env_nutrients = env - self.g * sigma_slm * env
+        # sigma_slm = f.sigma_Fx(slm)
+
+        #env = 10
+        #g=0.1
+        #slm=100
         
+        
+        temp = relu(env - self.g * slm * env)
+        assimilated = env - temp
+        self.Env_nutrients = temp        
 
 
         #rule 2
@@ -261,12 +268,15 @@ class environment:
 
         
 
-        
-        self.Slime_Amount = (
-                            (1-self.b)*slm + self.g*sigma_slm*env - self.e*mq*sigma_slm #Vincent forgot env for self.g*sigma_slm*env
-                            + self.p*(   torch.einsum('ijkl,kl->ij', pf, slm)  * f.sigma_Fx( (1-self.p) * slm)   )
-                            - torch.sum( pf ,(2,3)) * slm * f.sigma_Fx( (1-self.p) * slm) 
-                            )
+        #temp_slime = 
+
+        self.Slime_Amount = (1-self.b)*slm  + assimilated  + self.p*(torch.einsum('ijkl,kl->ij', pf, slm) - torch.sum( pf ,(2,3)) * slm)   
+                            
+        # temp_slime = relu(slm - self.b)
+
+        # self.Slime_Amount = temp_slime + assimilated 
+        # + self.p*(    torch.einsum('ijkl,kl->ij', pf, slm)
+        # - torch.sum( pf ,(2,3)) * slm)                       
         
         # self.Slime_Amount = (
         #                     (1-self.b)*slm + self.g*sigma_slm*env - self.e*mq*sigma_slm #Vincent forgot env for self.g*sigma_slm*env
@@ -309,7 +319,7 @@ if (visualization_flag):
     fileName = 'output'
     video_format = '.avi'
     fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
-    fps = 5.0
+    fps = 1.0
 
     frame_width = 1280 if (grid.x * 50 > 1280) else (grid.x * 50)
     frame_height = 720 if (grid.y * 50 > 720) else (grid.y * 50)
@@ -444,16 +454,16 @@ while frame <= sim_length :
                 input_tensor = torch.tensor(f.input_cells(y,x,slime_padded))
                 output_layer = mlp.forward(input_tensor)
                 grid.Pump_Fraction.data.copy_(f.update_pump(y,x,grid.Pump_Fraction,output_layer).data) #this is how you update values for tensors with grad
-                if (grid.Slime_Amount[y][x] > 0 ):
-                    print("Frame #",frame)
-                    print("Coords",y,x,": ")
-                    print("Slime Content: ", grid.Slime_Amount[y][x])
-                    print("Output layer: ",output_layer)
-                    print("grid pump:\n",grid.Pump_Fraction[y][x][:][:],end="\n\n")
+                # if (grid.Slime_Amount[y][x] > 0 ):
+                #     print("Frame #",frame)
+                #     print("Coords",y,x,": ")
+                #     print("Slime Content: ", grid.Slime_Amount[y][x])
+                #     print("Output layer: ",output_layer)
+                #     print("grid pump:\n",grid.Pump_Fraction[y][x][:][:],end="\n\n")
                 
             
 
-    # pump(False,grid.Pump_Fraction,0.5,4,4,5,4)
+    #pump(False,grid.Pump_Fraction,0.5,4,4,5,4)
     # print("grid pump:\n",grid.Pump_Fraction[4][4][:][:],end="\n\n")
     grid.update()
 
