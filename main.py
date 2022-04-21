@@ -29,10 +29,10 @@ class environment:
         self.y = y 
         
         self.Env_nutrients = torch.zeros((x,y),dtype=torch.float32)
-        self.Slime_Amount = torch.zeros((x,y),dtype=torch.float32)
+        self.Slime_Amount = torch.zeros((x,y),dtype=torch.float32, requires_grad=True)
         self.Compound_Quantity = torch.zeros((x,y),dtype=torch.float32)
-        self.Pump_Fraction = torch.zeros((x,y,x,y),dtype=torch.float32) #pump fraction p of nutrients from (i, j) to (k, l)
-        self.Emit_Quantity = torch.zeros((x,y),dtype=torch.float32) #emit quantity of compound at (i, j)
+        self.Pump_Fraction = torch.zeros((x,y,x,y),dtype=torch.float32, requires_grad=True) #pump fraction p of nutrients from (i, j) to (k, l)
+        self.Emit_Quantity = torch.zeros((x,y),dtype=torch.float32, requires_grad=True) #emit quantity of compound at (i, j)
         #0 E Environmental nutrients
         #1 S Slime mold cytoplasm amount
         #2 C Communication compound quantity
@@ -94,7 +94,7 @@ class environment:
             j = sample[index]%self.x
             nutrients[i][j] = self.g*self.max_cons - nutrients[i][j]  
 
-        slime_cont =  torch.zeros((self.x,self.y), dtype=torch.float32)
+        slime_cont =  torch.zeros((self.x,self.y), dtype=torch.float32, requires_grad=True)
         slm_i = (perm[k[0]+1])//self.x
         slm_j = (perm[k[0]+1])%self.x
         slime_cont[slm_i][slm_j] = self.max_cons*0.2 #how much slime molds do we add
@@ -125,7 +125,7 @@ class environment:
             self.x = len(nutrients_matrix[0])
             self.y = len(nutrients_matrix)
             self.Env_nutrients = torch.tensor(nutrients_matrix, dtype=torch.float32)
-            self.Slime_Amount = torch.tensor(slime_matrix, dtype=torch.float32)
+            self.Slime_Amount = torch.tensor(slime_matrix, dtype=torch.float32, requires_grad=True)
             self.Compound_Quantity =  torch.tensor(compound_matrix, dtype=torch.float32)
             
            
@@ -163,7 +163,7 @@ class environment:
     def default_map(self):
         
         torch.manual_seed(7842)
-        self.Pump_Fraction = torch.rand(10,10,10,10)
+        self.Pump_Fraction = torch.rand((10,10,10,10), requires_grad=True)
         self.Emit_Quantity = torch.rand(10,10)
 
                                                 #1,2,3,4,5,6,7,8,9,0
@@ -190,7 +190,7 @@ class environment:
                                                 [0,0,0,0,0,0,0,0,0,0],          #8
                                                 [0,0,0,0,0,0,0,0,0,0],          #9
                                                 [0,0,0,0,0,0,0,0,0,0]   ]      #10
-                                                ,dtype=torch.float32)
+                                                ,dtype=torch.float32, requires_grad = True)
 
         self.Compound_Quantity = torch.tensor([ [9,0,0,0,0,0,0,0,0,9],          #1
                                                 [0,1,0,0,0,0,0,0,0,0],          #2
@@ -260,11 +260,19 @@ class environment:
         #torch.einsum('ijkl,kl->ij', A, B) Multiplication
 
         
+
+        
         self.Slime_Amount = (
                             (1-self.b)*slm + self.g*sigma_slm*env - self.e*mq*sigma_slm #Vincent forgot env for self.g*sigma_slm*env
                             + self.p*(   torch.einsum('ijkl,kl->ij', pf, slm)  * f.sigma_Fx( (1-self.p) * slm)   )
                             - torch.sum( pf ,(2,3)) * slm * f.sigma_Fx( (1-self.p) * slm) 
                             )
+        
+        # self.Slime_Amount = (
+        #                     (1-self.b)*slm + self.g*sigma_slm*env - self.e*mq*sigma_slm #Vincent forgot env for self.g*sigma_slm*env
+        #                     + (   torch.einsum('ijkl,kl->ij', pf, slm)  * f.sigma_Fx( (1-self.p) * slm)   )
+        #                     - torch.sum( pf ,(2,3)) * slm * f.sigma_Fx( (1-self.p) * slm) 
+        #                     )
 
         
         
@@ -292,7 +300,7 @@ class environment:
     
 input_map = mapinfo
 #grid = environment(rand_seed=7842)
-grid = environment(input_map)
+grid = environment(input_map,g=0.5)
 
 #BEGIN visualization
 if (visualization_flag):
@@ -331,11 +339,14 @@ if (visualization_flag):
 #Initialize the MLP
 mlp = slime_class.slime()
 
+for param in mlp.parameters():
+    assert param.requires_grad==True
+
 # Define the loss function and optimizer
 optim_function = torch.sum(grid.Slime_Amount)
 optimizer = slime_class.slime_optimizer(mlp.parameters(), lr=1e-4) 
-
-for frame in range(sim_length):
+frame = 1
+while frame <= sim_length :
     #BEGIN visualization
     if (visualization_flag):
         # # decrease design:
@@ -363,7 +374,8 @@ for frame in range(sim_length):
                 #nutrient
                 nutrient_color = (0, 80, 255)
                 center = (round(x*x_portion + x_portion/2), round(y*y_portion + y_portion/2))
-                env_percent =  1.0 if (grid.Env_nutrients[y][x].item() > grid.g * 100 * 1.0) else (grid.Env_nutrients[y][x].item() / grid.g / 100) #nutrient 0 ~ 100*g
+                env_percent =  1.0 if (grid.Env_nutrients[y][x].item() > 10) else (grid.Env_nutrients[y][x].item() / 10) #nutrient 0 ~ 10
+                #env_percent =  1.0 if (grid.Env_nutrients[y][x].item() > grid.g * 100 * 1.0) else (grid.Env_nutrients[y][x].item() / grid.g / 100) #nutrient 0 ~ 100*g
                 #env_percent = (grid.Env_nutrients[y][x].item() / grid.g / 100) #no control in size exceed limit
                 radius = round(y_portion / 2 * env_percent)
                 cv2.circle(current_frame, center, radius, nutrient_color, -1)
@@ -381,7 +393,17 @@ for frame in range(sim_length):
     #END visualization
 
 
-    if frame % 1 == 0:
+    def pump(flag,tensor,percent,i,j,k,l):
+        rnd_pump = random.randint(0,10)
+        if(not flag or (flag and rnd_pump % 2 == 0)):
+            new_value = tensor.data
+            new_value[i][j][k][l] =percent
+            tensor.data.copy_(new_value.data)
+
+
+            
+
+    if frame % 100 == 0:
        
         print("Frame #",frame)
         print("Total Nutrients: ",torch.sum(grid.Env_nutrients))
@@ -421,7 +443,18 @@ for frame in range(sim_length):
             for x in range(grid.x):
                 input_tensor = torch.tensor(f.input_cells(y,x,slime_padded))
                 output_layer = mlp.forward(input_tensor)
-                f.update_pump(y,x,grid.Pump_Fraction,output_layer)
+                grid.Pump_Fraction.data.copy_(f.update_pump(y,x,grid.Pump_Fraction,output_layer).data) #this is how you update values for tensors with grad
+                if (grid.Slime_Amount[y][x] > 0 ):
+                    print("Frame #",frame)
+                    print("Coords",y,x,": ")
+                    print("Slime Content: ", grid.Slime_Amount[y][x])
+                    print("Output layer: ",output_layer)
+                    print("grid pump:\n",grid.Pump_Fraction[y][x][:][:],end="\n\n")
+                
+            
+
+    # pump(False,grid.Pump_Fraction,0.5,4,4,5,4)
+    # print("grid pump:\n",grid.Pump_Fraction[4][4][:][:],end="\n\n")
     grid.update()
 
 
@@ -441,7 +474,7 @@ for frame in range(sim_length):
   
 
     
-    if frame % 100 == 0:
+    if frame % 5 == 0:
         print("OPTIMIZATION STEP")
         #4,4 ->  pump[3][3] pump[3][4] pump[3][5] pump[4][3] pump[4][5] pump[5][3] pump[5][4] pump[5][5]
         # 3,3 	3,4 	3,5
@@ -449,12 +482,14 @@ for frame in range(sim_length):
         # 5,3 	5,4 	5,5 
         outputs = mlp(input_tensor)
         optimizer.zero_grad()
-        #torch.sum(grid.Slime_Amount).backward()
+        torch.sum(grid.Slime_Amount).backward(retain_graph=True)
         optimizer.step()
         print("------------")
         print("")
         print("")
         print("---updated optimzor--")
+
+    frame+=1
 
 
 

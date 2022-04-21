@@ -24,7 +24,7 @@ class linreg(torch.nn.Module):
 def F (params: List[torch.Tensor], d_p_list: List[torch.Tensor], lr:float):
     for i, param in enumerate(params):
         d_p = d_p_list[i]
-        param.add_(d_p, alpha=-lr)
+        param.add_(d_p, alpha=lr)
 
 
 class slime_optimizer(Optimizer):
@@ -70,7 +70,7 @@ lossfunc = torch.nn.MSELoss() #https://pytorch.org/docs/stable/generated/torch.n
 slime_optim= slime_optimizer(model.parameters(), lr=0.1)
 
 
-optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+optimizer = torch.optim.SGD(model.parameters(), lr=1e-50)
 
 # model.w = torch.nn.Parameter(torch.tensor(3.))
 # model.b = torch.nn.Parameter(torch.tensor(1.))

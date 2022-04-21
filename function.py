@@ -55,15 +55,23 @@ def update_pump(i ,j , pump,layer_out):
     # grid.Pump_Fraction[i][j][i+1][j-1] = output_list[5] #up left corner
     # grid.Pump_Fraction[i][j][i+1][j] = output_list[6] #directly above
     # grid.Pump_Fraction[i][j][i+1][j+1] = output_list[7] #up right corner
+    
+    i_adjust = i+1
+    j_adjust = j+1
+    
+    
     pump_padded = padding(pump)
-    pump_padded[i][j][i-1][j-1] = layer_out[0]
-    pump_padded[i][j][i-1][j] = layer_out[1]
-    pump_padded[i][j][i-1][j+1] = layer_out[2]
-    pump_padded[i][j][i][j-1] = layer_out[3]
-    pump_padded[i][j][i][j+1] = layer_out[4]
-    pump_padded[i][j][i+1][j-1] = layer_out[5]
-    pump_padded[i][j][i+1][j] = layer_out[6]
-    pump_padded[i][j][i+1][j+1] = layer_out[7]
+    # print("original:",i,j)
+    # print("adjusted; ",i_adjust,j_adjust)
+    # print(pump_padded[i][j][:][:])
+    pump_padded[i][j][i_adjust-1][j_adjust-1] = layer_out[0]
+    pump_padded[i][j][i_adjust-1][j_adjust] = layer_out[1]
+    pump_padded[i][j][i_adjust-1][j_adjust+1] = layer_out[2]
+    pump_padded[i][j][i_adjust][j_adjust-1] = layer_out[3]
+    pump_padded[i][j][i_adjust][j_adjust+1] = layer_out[4]
+    pump_padded[i][j][i_adjust+1][j_adjust-1] = layer_out[5]
+    pump_padded[i][j][i_adjust+1][j_adjust] = layer_out[6]
+    pump_padded[i][j][i_adjust+1][j_adjust+1] = layer_out[7]
 
 
     n3 = pump_padded.size(dim=2) - 1
@@ -150,10 +158,11 @@ def sigma_Fx( t : torch.tensor, dt = delta_threshold):
 # print("x1:\n",x1)
 # print("out:\n",out)
 # print("out without padding:\n",out[1:4,1:4])
+
 # x2 = torch.zeros(3,3,3,3)
 # out = torch.tensor([1,2,3,4,5,6,7,8])
-# unpadded = update_pump(2,2,x2,out)
+# unpadded = update_pump(1,1,x2,out)
 # print(unpadded)
-# print(unpadded[2,2,:,:])
+# print(unpadded[1,1,:,:])
 
 
