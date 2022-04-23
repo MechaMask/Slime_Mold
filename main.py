@@ -70,12 +70,92 @@ class environment:
 
 
 
-            
-
-        
-        
-
         #self.default_map()
+
+
+        #BEGIN visualization
+        if (visualization_flag):
+            #visualization      iniialize video writer with motion-jpeg codec
+            output_path = ''
+            fileName = 'output'
+            video_format = '.avi'
+            fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
+            fps = 5.0
+
+            frame_width = 1280 if (self.x * 50 > 1280) else (self.x * 50)
+            frame_height = 720 if (self.y * 50 > 720) else (self.y * 50)
+            self.x_portion = (frame_width / self.x)
+            self.y_portion = (frame_height / self.y)
+
+            self.result = cv2.VideoWriter(output_path + fileName + video_format, fourcc, fps, (frame_width , frame_height ), isColor=True)
+
+            #visualization      create empty grid, draw grid lines
+            self.empty_grid_img = np.zeros([frame_height, frame_width,3], dtype=np.uint8)    #blank image, background black
+            self.empty_grid_img.fill(255)                                                    #background white
+            color_black = (0,0,0)
+            thickness = 1
+            for v_x in range(1, self.x):                                                #draw vertical lines
+                x_index = round(v_x * self.x_portion)
+                #line(img, pt1, pt2, color, thickness)
+                cv2.line(self.empty_grid_img, (x_index, 0), (x_index, frame_height), color_black, thickness)
+            for h_y in range(1, self.y):                                                #draw horizontal lines
+                y_index = round(h_y * self.y_portion)
+                cv2.line(self.empty_grid_img, (0, y_index), (frame_width, y_index), color_black, thickness)
+        #END visualization
+
+    def to_frame(self):
+        #BEGIN visualization
+        if (visualization_flag):
+            # # decrease design:
+            # #   slimemold       lighter in green color.
+            # #   nutrient        shrink in circle size
+            # #   cc              less yellow dots
+            current_frame = self.empty_grid_img.copy()
+            for y in range(self.y):
+                for x in range(self.x):
+                    x_left = round(x * self.x_portion) + 1
+                    y_top = round(y * self.y_portion) + 1
+                    x_right = round((x+1) * self.x_portion) - 1
+                    y_bottom = round((y+1) * self.y_portion) - 1
+                    #slime
+                    slime_percent = 1.0 if (self.Slime_Amount[y][x].item() > 20.) else (self.Slime_Amount[y][x].item() / 20.) #slime 0. ~ 20.
+                    #   slime amount / max  → max = 50 → 1/50 = 0.02        
+                    if (slime_percent == 0):
+                        slime_color = (255,255,255)
+                    else:
+                        slime_color = (round((167-38) * (1 - slime_percent) + 38) , round((255-116) * (1 - slime_percent) + 116) , round(126 * (1 - slime_percent))) # blue green red
+                        #       167~38          255~116     126~0
+                        #slime_color = (round((255-80) * (1 - slime_percent) + 80) ,255 ,round((1 - slime_percent) * 255)) # blue green red
+                        #       255 ~ 80        255         255 ~ 0
+                    if (self.Slime_Amount[y][x].item() < 0):
+                        slime_color = (75,75,75)
+                    cv2.rectangle(current_frame,(x_left, y_top), (x_right,y_bottom),slime_color,-1)
+                    #nutrient
+                    nutrient_color = (0, 80, 255)
+                    center = (round(x*self.x_portion + self.x_portion/2), round(y*self.y_portion + self.y_portion/2))
+                    env_percent =  1.0 if (self.Env_nutrients[y][x].item() > self.g * 100 * 1.0) else (self.Env_nutrients[y][x].item() / self.g / 100) #nutrient 0 ~ 100*g
+                    #env_percent = (grid.Env_nutrients[y][x].item() / grid.g / 100) #no control in size exceed limit
+                    if (self.Env_nutrients[y][x].item() < 0):
+                        nutrient_color = (30,40,70)
+                        env_percent = 1.0
+                    radius = round(self.y_portion / 2 * env_percent)
+                    cv2.circle(current_frame, center, radius, nutrient_color, -1)
+                    #cc
+                    cc_amount = round(2 *self.Compound_Quantity[y][x].item()) #amount of cc dots
+                    cc_color = (0,255,255)
+                    if (self.Compound_Quantity[y][x].item() < 0):
+                        cc_amount = 10
+                        cc_color = (63,133,133)
+
+                    for i in range(cc_amount):
+                        rand_x = random.randint(round(x_left + self.x_portion/5), round(x_right - self.x_portion/5))
+                        rand_y = random.randint(round(y_top + self.y_portion/5), round(y_bottom - self.y_portion/5))
+                        cv2.circle(current_frame, (rand_x, rand_y), 3, cc_color, -1)
+
+            #cv2.imshow('output frame',current_frame)    #show frame
+            #cv2.waitKey(0)
+            self.result.write(current_frame)                         #write frame
+        #END visualization
     
     def random_map(self,rand_seed):
         torch.manual_seed(rand_seed)
@@ -312,35 +392,7 @@ input_map = mapinfo
 #grid = environment(rand_seed=7842)
 grid = environment(input_map,g=0.5)
 
-#BEGIN visualization
-if (visualization_flag):
-    #visualization      iniialize video writer with motion-jpeg codec
-    output_path = ''
-    fileName = 'output'
-    video_format = '.avi'
-    fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
-    fps = 1.0
 
-    frame_width = 1280 if (grid.x * 50 > 1280) else (grid.x * 50)
-    frame_height = 720 if (grid.y * 50 > 720) else (grid.y * 50)
-    x_portion = (frame_width / grid.x)
-    y_portion = (frame_height / grid.y)
-
-    result = cv2.VideoWriter(output_path + fileName + video_format, fourcc, fps, (frame_width , frame_height ), isColor=True)
-
-    #visualization      create empty grid, draw grid lines
-    empty_grid_img = np.zeros([frame_height, frame_width,3], dtype=np.uint8)    #blank image, background black
-    empty_grid_img.fill(255)                                                    #background white
-    color_black = (0,0,0)
-    thickness = 1
-    for v_x in range(1, grid.x):                                                #draw vertical lines
-        x_index = round(v_x * x_portion)
-        #line(img, pt1, pt2, color, thickness)
-        cv2.line(empty_grid_img, (x_index, 0), (x_index, frame_height), color_black, thickness)
-    for h_y in range(1, grid.y):                                                #draw horizontal lines
-        y_index = round(h_y * y_portion)
-        cv2.line(empty_grid_img, (0, y_index), (frame_width, y_index), color_black, thickness)
-#END visualization
 
 
 
@@ -357,50 +409,7 @@ optim_function = torch.sum(grid.Slime_Amount)
 optimizer = slime_class.slime_optimizer(mlp.parameters(), lr=1e-4) 
 frame = 1
 while frame <= sim_length :
-    #BEGIN visualization
-    if (visualization_flag):
-        # # decrease design:
-        # #   slimemold       lighter in green color.
-        # #   nutrient        shrink in circle size
-        # #   cc              less yellow dots
-        current_frame = empty_grid_img.copy()
-        for y in range(grid.y):
-            for x in range(grid.x):
-                x_left = round(x * x_portion) + 1
-                y_top = round(y * y_portion) + 1
-                x_right = round((x+1) * x_portion) - 1
-                y_bottom = round((y+1) * y_portion) - 1
-                #slime
-                slime_percent = 1.0 if (grid.Slime_Amount[y][x].item() > 20.) else (grid.Slime_Amount[y][x].item() / 20.) #slime 0. ~ 20.
-                #   slime amount / max  → max = 50 → 1/50 = 0.02        
-                if (slime_percent == 0):
-                    slime_color = (255,255,255)
-                else:
-                    slime_color = (round((167-38) * (1 - slime_percent) + 38) , round((255-116) * (1 - slime_percent) + 116) , round(126 * (1 - slime_percent))) # blue green red
-                    #       167~38          255~116     126~0
-                    #slime_color = (round((255-80) * (1 - slime_percent) + 80) ,255 ,round((1 - slime_percent) * 255)) # blue green red
-                    #       255 ~ 80        255         255 ~ 0
-                cv2.rectangle(current_frame,(x_left, y_top), (x_right,y_bottom),slime_color,-1)
-                #nutrient
-                nutrient_color = (0, 80, 255)
-                center = (round(x*x_portion + x_portion/2), round(y*y_portion + y_portion/2))
-                env_percent =  1.0 if (grid.Env_nutrients[y][x].item() > 10) else (grid.Env_nutrients[y][x].item() / 10) #nutrient 0 ~ 10
-                #env_percent =  1.0 if (grid.Env_nutrients[y][x].item() > grid.g * 100 * 1.0) else (grid.Env_nutrients[y][x].item() / grid.g / 100) #nutrient 0 ~ 100*g
-                #env_percent = (grid.Env_nutrients[y][x].item() / grid.g / 100) #no control in size exceed limit
-                radius = round(y_portion / 2 * env_percent)
-                cv2.circle(current_frame, center, radius, nutrient_color, -1)
-                #cc
-                cc_amount = round(2 *grid.Compound_Quantity[y][x].item()) #amount of cc dots
-                cc_color = (0,255,255)
-                for i in range(cc_amount):
-                    rand_x = random.randint(round(x_left + x_portion/5), round(x_right - x_portion/5))
-                    rand_y = random.randint(round(y_top + y_portion/5), round(y_bottom - y_portion/5))
-                    cv2.circle(current_frame, (rand_x, rand_y), 3, cc_color, -1)
-
-        #cv2.imshow('output frame',current_frame)    #show frame
-        #cv2.waitKey(0)
-        result.write(current_frame)                         #write frame
-    #END visualization
+    grid.to_frame() #visualization
 
 
     def pump(flag,tensor,percent,i,j,k,l):
