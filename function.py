@@ -20,7 +20,7 @@ def valid_grid_length(matrix1,matrix2,matrix3):
 def padding(tensor):
     pad_value = 0
     pad_func = torch.nn.ConstantPad1d((1,1,1,1), pad_value)
-    padded_tensor =pad_func(tensor)
+    padded_tensor =pad_func(tensor.clone())
     return padded_tensor
 
 
