@@ -23,8 +23,8 @@ with open('map.json') as json_file:
 
     
 input_map = mapinfo
-#grid = envr.environment(rand_seed=7842,vf=visualization_flag))
-grid = envr.environment(input_map,g=0.5,vf=visualization_flag)
+grid = envr.environment(x=20,y=20,vf=visualization_flag)
+#grid = envr.environment(input_map,g=0.5,vf=visualization_flag)
 
 
 

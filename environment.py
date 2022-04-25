@@ -8,7 +8,7 @@ import numpy as np
 import random
 
 class environment:
-    def __init__(self, input_map = None, x=10,y=10, rand_seed = torch.seed(), p = 0.1, g = 0.1, b = 0.1, d = 0.1, c = 0.1, e = 0.1, u =3, max_cons = 100 , max_location = 5,vf=True):
+    def __init__(self, input_map = None, x=10,y=10,slm_init = 20, ntr_init = 10 ,p = 0.1, g = 0.1, br = 0.1, bc = 0.1, d = 0.1, c = 0.1, e = 0.1, u =3, max_cons = 100 ,ntrprop = 0.05, vf=True,filename='output'):
         self.x = x 
         self.y = y 
         
@@ -21,32 +21,39 @@ class environment:
         #1 S Slime mold cytoplasm amount
         #2 C Communication compound quantity
         
-        self.u = u
+        self.u = u #number of time steps requied to digest a low concentraion nutrient
         self.max_cons = max_cons 
-        self.max_location = max_location
-        #p pumping proportion
-        self.p = p 
+        self.ntrprop = ntrprop #proportion of high concentration nutrients to the map size
+
+        self.slm_init = slm_init #initial slime mold quantity
+        self.ntr_init = ntr_init #max initial high concentration quantity
         
-        #g nutrients step-wise digestion quantity
-        self.g = g
+        self.p = p #pumping proportion
+        
+        
+        self.g = g #nutrients step-wise digestion quantity
 
-        #b nutrients step-wise burn rate
-        self.b = b
+        
+        self.br = br #nutrients step-wise burn rate
 
-        #d compound degradation rate
-        self.d = d
+        self.bc = bc #nutrients step-wise burn rate
 
-        #The quantity of chemical compound emited when performing action M
-        self.c = c
+        
+        self.d = d #compound degradation rate
+
+        
+        self.c = c #The quantity of chemical compound emited when performing action M
     
-        #the chemical compound emission cost
-        self.e = e
+        
+        self.e = e #the chemical compound emission cost
+
+        
 
  
 
         if (input_map == None):
             #no input, so randomize map
-            self.random_map(rand_seed)
+            self.random_map()
         else:
             self.load_map(input_map)
             #have input, so load map
@@ -61,7 +68,7 @@ class environment:
         if (vf):
             #visualization      iniialize video writer with motion-jpeg codec
             output_path = ''
-            fileName = 'output'
+            self.fileName = filename    #output video file name                 example:   grid.filename = 'new name'
             video_format = '.avi'
             fourcc = cv2.VideoWriter_fourcc('M', 'J', 'P', 'G')
             fps = 5.0
@@ -71,7 +78,7 @@ class environment:
             self.x_portion = (frame_width / self.x)
             self.y_portion = (frame_height / self.y)
 
-            self.result = cv2.VideoWriter(output_path + fileName + video_format, fourcc, fps, (frame_width , frame_height ), isColor=True)
+            self.result = cv2.VideoWriter(output_path + self.fileName + video_format, fourcc, fps, (frame_width , frame_height ), isColor=True)
 
             #visualization      create empty grid, draw grid lines
             self.empty_grid_img = np.zeros([frame_height, frame_width,3], dtype=np.uint8)    #blank image, background black
@@ -141,14 +148,14 @@ class environment:
         self.result.write(current_frame)                         #write frame
     #END visualization
     
-    def random_map(self,rand_seed):
-        torch.manual_seed(rand_seed)
+    def random_map(self):  
         max_index = self.x*self.y
         nutrients = torch.rand((self.x,self.y), dtype=torch.float32) *self.g*self.u #generate random tensor with uniform nutirents
+       
        # k = torch.randint(1, self.max_location , (1,)) #determine how many high concentraition spots
-        k= torch.tensor([5])
-        perm = torch.randperm(max_index) #a random permutation of numbers between o - maxindex - 1  
-        sample = perm[:k[0]] # select the first k from the random permutation
+        k= round(self.ntrprop*max_index)
+        perm = torch.randperm(max_index) #a random permutation of numbers between 0 and maxindex - 1  
+        sample = perm[:k] # select the first k from the random permutation
 
       
       
@@ -156,16 +163,16 @@ class environment:
         for index in range(len(sample)):
             i = sample[index]//self.x
             j = sample[index]%self.x
-            nutrients[i][j] = self.g*self.max_cons - nutrients[i][j]  
+            nutrients[i][j] = self.ntr_init - nutrients[i][j]  
 
-        slime_cont =  torch.zeros((self.x,self.y), dtype=torch.float32, requires_grad=True)
-        slm_i = (perm[k[0]+1])//self.x
-        slm_j = (perm[k[0]+1])%self.x
-        slime_cont[slm_i][slm_j] = self.max_cons*0.2 #how much slime molds do we add
+        slime_cont =  torch.zeros((self.x,self.y), dtype=torch.float32)
+        slm_i = (perm[k+1])//self.x
+        slm_j = (perm[k+1])%self.x
+        slime_cont[slm_i][slm_j] = self.slm_init #how much slime molds do we add
         nutrients[slm_i][slm_j] = nutrients[slm_i][slm_j] + self.max_cons*0.15 #how much nutrient for the slime molds
 
         self.Env_nutrients = nutrients
-        self.Slime_Amount =slime_cont
+        self.Slime_Amount.data.copy_(slime_cont.data)
         
    
         
@@ -333,8 +340,8 @@ class environment:
         
 
         #temp_slime = 
-
-        self.Slime_Amount = (1-self.b)*slm  + assimilated  + self.p*(torch.einsum('ijkl,kl->ij', pf, slm) - torch.sum( pf ,(2,3)) * slm)   
+        slm = relu(slm - self.bc*torch.ones_like(slm))
+        self.Slime_Amount = ((1-self.br)*slm  + assimilated  + self.p*(torch.einsum('ijkl,kl->ij', pf, slm) - torch.sum( pf ,(2,3)) * slm))   
                             
         # temp_slime = relu(slm - self.b)
 
