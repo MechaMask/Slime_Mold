@@ -8,7 +8,7 @@ import numpy as np
 import random
 
 class environment:
-    def __init__(self, input_map = None, x=10,y=10,slm_init = 20, ntr_init = 10 ,p = 0.1, g = 0.1, br = 0.1, bc = 0.1, d = 0.1, c = 0.1, e = 0.1, u =3, max_cons = 100 ,ntrprop = 0.05, vf=True,filename='output'):
+    def __init__(self, input_map = None, x=10,y=10,slm_init = 20, ntr_init = 10 ,p = 0.1, g = 0.1, br = 0.1, bc = 0.1, d = 0.1, c = 0.1, e = 0.1, u =3, init_food = 20 ,ntrprop = 0.05, vf=True,filename='output'):
         self.x = x 
         self.y = y 
         
@@ -22,7 +22,7 @@ class environment:
         #2 C Communication compound quantity
         
         self.u = u #number of time steps requied to digest a low concentraion nutrient
-        self.max_cons = max_cons 
+        self.init_food = init_food #initla food under the slime mold
         self.ntrprop = ntrprop #proportion of high concentration nutrients to the map size
 
         self.slm_init = slm_init #initial slime mold quantity
@@ -169,7 +169,7 @@ class environment:
         slm_i = (perm[k+1])//self.x
         slm_j = (perm[k+1])%self.x
         slime_cont[slm_i][slm_j] = self.slm_init #how much slime molds do we add
-        nutrients[slm_i][slm_j] = nutrients[slm_i][slm_j] + self.max_cons*0.15 #how much nutrient for the slime molds
+        nutrients[slm_i][slm_j] = nutrients[slm_i][slm_j] +self.init_food #how much nutrient for the slime molds
 
         self.Env_nutrients = nutrients
         self.Slime_Amount.data.copy_(slime_cont.data)
@@ -339,10 +339,8 @@ class environment:
 
         
 
-        #temp_slime = 
-        slm = relu(slm - self.bc*torch.ones_like(slm))
-        self.Slime_Amount = ((1-self.br)*slm  + assimilated  + self.p*(torch.einsum('ijkl,kl->ij', pf, slm) - torch.sum( pf ,(2,3)) * slm))   
-                            
+        self.Slime_Amount = ((1-self.br)*slm - self.bc*torch.ones_like(slm)  + assimilated  + self.p*(torch.einsum('ijkl,kl->ij', pf, slm) - torch.sum( pf ,(2,3)) * slm))   
+        self.Slime_Amount = relu(self.Slime_Amount)            
         # temp_slime = relu(slm - self.b)
 
         # self.Slime_Amount = temp_slime + assimilated 

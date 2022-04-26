@@ -12,7 +12,9 @@ import random
 sim_length = 20
 delta_threshold = f.delta_threshold
 visualization_flag = True   #flag to turn visualization on and off
-
+i = 1
+j = 2
+SAVE_PATH = 'parameters' +str(i)+ '.pth' 
 
 
 
@@ -20,10 +22,11 @@ visualization_flag = True   #flag to turn visualization on and off
 with open('map.json') as json_file:
     mapinfo = json.load(json_file)
 
-
-    
+fn = "output" + str(j)
+ 
+torch.manual_seed(1712)   
 input_map = mapinfo
-grid = envr.environment(x=20,y=20,vf=visualization_flag)
+grid = envr.environment(x=20,y=20,slm_init = 15, ntr_init = 30 ,p = 0.4, g = 0.5, br = 0.2, bc = 0.2, u =4, init_food = 15 ,ntrprop = 0.05, vf=visualization_flag,filename=fn)
 #grid = envr.environment(input_map,g=0.5,vf=visualization_flag)
 
 
@@ -34,6 +37,7 @@ grid = envr.environment(x=20,y=20,vf=visualization_flag)
 
 #Initialize the MLP
 mlp = slime_class.slime()
+mlp.load_state_dict(torch.load(SAVE_PATH))
 
 for param in mlp.parameters():
     assert param.requires_grad==True
@@ -42,6 +46,8 @@ for param in mlp.parameters():
 optim_function = torch.sum(grid.Slime_Amount)
 optimizer = slime_class.slime_optimizer(mlp.parameters(), lr=1e-4) 
 frame = 1
+
+input_tensor = torch.zeros(9)
 while frame <= sim_length :
     if(visualization_flag):
         grid.to_frame() #visualization
@@ -57,7 +63,7 @@ while frame <= sim_length :
 
             
 
-    if frame % 100 == 0:
+    if frame % 5 == 0:
        
         print("Frame #",frame)
         print("Total Nutrients: ",torch.sum(grid.Env_nutrients))
@@ -128,25 +134,24 @@ while frame <= sim_length :
   
 
     
-    if frame % 5 == 0:
-        print("OPTIMIZATION STEP")
-        #4,4 ->  pump[3][3] pump[3][4] pump[3][5] pump[4][3] pump[4][5] pump[5][3] pump[5][4] pump[5][5]
-        # 3,3 	3,4 	3,5
-        # 4,3 	4,4 	4,5
-        # 5,3 	5,4 	5,5 
-        outputs = mlp(input_tensor)
-        optimizer.zero_grad()
-        torch.sum(grid.Slime_Amount).backward(retain_graph=True)
-        optimizer.step()
-        print("------------")
-        print("")
-        print("")
-        print("---updated optimzor--")
+ 
+      
 
     frame+=1
 
-
-
+print("OPTIMIZATION STEP")
+#4,4 ->  pump[3][3] pump[3][4] pump[3][5] pump[4][3] pump[4][5] pump[5][3] pump[5][4] pump[5][5]
+# 3,3 	3,4 	3,5
+# 4,3 	4,4 	4,5
+# 5,3 	5,4 	5,5 
+outputs = mlp(input_tensor)
+optimizer.zero_grad()
+torch.sum(grid.Slime_Amount).backward(retain_graph=True)
+optimizer.step()
+print("------------")
+print("")
+print("")
+print("---updated optimzor--")
 
 
 #BEGIN visualization
@@ -155,3 +160,7 @@ if (visualization_flag):
     grid.result.release()
     cv2.destroyAllWindows() #close all frame windows
 #END visualization
+
+SAVE_PATH = 'parameters' +str(j)+ '.pth' 
+
+torch.save(mlp.state_dict(), SAVE_PATH)
