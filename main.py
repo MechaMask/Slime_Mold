@@ -9,62 +9,70 @@ import cv2
 import numpy as np
 import random
 
-sim_length = 20
+sim_length = 100
 delta_threshold = f.delta_threshold
 visualization_flag = True   #flag to turn visualization on and off
-i = 1
-j = 2
-SAVE_PATH = 'parameters' +str(i)+ '.pth' 
+# prev_itr = -1
+# curr_itr = 0
+fit_val = []
 
 
-
- 
-with open('map.json') as json_file:
-    mapinfo = json.load(json_file)
-
-fn = "output" + str(j)
- 
-torch.manual_seed(1712)   
-input_map = mapinfo
-grid = envr.environment(x=20,y=20,slm_init = 15, ntr_init = 30 ,p = 0.4, g = 0.5, br = 0.2, bc = 0.2, u =4, init_food = 15 ,ntrprop = 0.05, vf=visualization_flag,filename=fn)
-#grid = envr.environment(input_map,g=0.5,vf=visualization_flag)
-
-
-
-
-
-
-
-#Initialize the MLP
-mlp = slime_class.slime()
-mlp.load_state_dict(torch.load(SAVE_PATH))
-
-for param in mlp.parameters():
-    assert param.requires_grad==True
-
-# Define the loss function and optimizer
-optim_function = torch.sum(grid.Slime_Amount)
-optimizer = slime_class.slime_optimizer(mlp.parameters(), lr=1e-4) 
-frame = 1
-
-input_tensor = torch.zeros(9)
-while frame <= sim_length :
-    if(visualization_flag):
-        grid.to_frame() #visualization
-
-
-    def pump(flag,tensor,percent,i,j,k,l):
+def pump(flag,tensor,percent,i,j,k,l):
         rnd_pump = random.randint(0,10)
         if(not flag or (flag and rnd_pump % 2 == 0)):
             new_value = tensor.data
             new_value[i][j][k][l] =percent
             tensor.data.copy_(new_value.data)
+                
+
+ 
+with open('map.json') as json_file:
+    mapinfo = json.load(json_file)
+input_map = mapinfo
+torch.manual_seed(1712)   
+# while (curr_itr<=100):
+
+fn = "output" + str(" long")
+
+
+grid = envr.environment(x=20,y=20,slm_init = 15, ntr_init = 100 ,p = 0.5, g = 0.03, br = 0.01, bc = 0.1, u =4, init_food = 15 ,ntrprop = 0.05, vf=visualization_flag,filename=fn)
+#grid = envr.environment(input_map,g=0.5,vf=visualization_flag)
+
+
+#Initialize the MLP
+
+mlp = slime_class.slime()
+
+    # if curr_itr != 0:
+
+SAVE_PATH = 'parameters93.pth' 
+mlp.load_state_dict(torch.load(SAVE_PATH))
+
+optim_function = torch.sum(grid.Slime_Amount)
+optimizer = slime_class.slime_optimizer(mlp.parameters(), lr=1e-4) 
+
+# for param in mlp.parameters():
+#     assert param.requires_grad==True
+
+# Define the loss function and optimizer
+
+frame = 1
+
+input_tensor = torch.zeros(9)
+
+
+while frame <= sim_length :
+    if(visualization_flag):
+        grid.to_frame() #visualization
+
+
+    
 
 
             
 
     if frame % 5 == 0:
-       
+    
         print("Frame #",frame)
         print("Total Nutrients: ",torch.sum(grid.Env_nutrients))
         print("Total Slime: ",torch.sum(grid.Slime_Amount))
@@ -131,11 +139,11 @@ while frame <= sim_length :
     # grid.Pump_Fraction[4][4][5][4] = output_layer[6]
     # grid.Pump_Fraction[4][4][5][5] = output_layer[7]
     # f.update_pump(4,4,output_layer,grid)
-  
+
 
     
- 
-      
+
+    
 
     frame+=1
 
@@ -153,7 +161,7 @@ print("")
 print("")
 print("---updated optimzor--")
 
-
+fit_val.append(torch.sum(grid.Slime_Amount))
 #BEGIN visualization
 #clean up
 if (visualization_flag):
@@ -161,6 +169,10 @@ if (visualization_flag):
     cv2.destroyAllWindows() #close all frame windows
 #END visualization
 
-SAVE_PATH = 'parameters' +str(j)+ '.pth' 
+SAVE_PATH = 'parametersLong.pth' 
 
 torch.save(mlp.state_dict(), SAVE_PATH)
+# prev_itr+=1
+# curr_itr+=1
+print(fit_val)
+
